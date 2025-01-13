@@ -74,7 +74,7 @@ def download_favicon(url):
         parsed_url = urlparse(url)
         base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
         print(f"正在获取网站 {base_url} 的图标...")
-        
+
         # 创建固定的图标保存目录
         icon_dir = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'WebIcons')
         os.makedirs(icon_dir, exist_ok=True)
@@ -90,8 +90,10 @@ def download_favicon(url):
         if os.path.exists(png_icon_path) and os.path.getsize(png_icon_path) > 0:
             print(f"找到缓存的PNG图标: {png_icon_path}")
             # 转换为ICO
-            convert_png_to_ico(png_icon_path, ico_icon_path)
-            return ico_icon_path
+            result = convert_png_to_ico(png_icon_path, ico_icon_path)
+            if result:
+                return result
+            return download_default_icon()
 
         # 尝试直接获取favicon.ico
         try:
@@ -103,8 +105,10 @@ def download_favicon(url):
                     f.write(response.content)
                 print(f"成功下载图标到: {png_icon_path}")
                 # 转换为ICO
-                convert_png_to_ico(png_icon_path, ico_icon_path)
-                return ico_icon_path
+                result = convert_png_to_ico(png_icon_path, ico_icon_path)
+                if result:
+                    return result
+                return download_default_icon()
             else:
                 print("未找到直接的favicon.ico")
         except Exception as e:
@@ -146,8 +150,10 @@ def download_favicon(url):
                                         f.write(icon_response.content)
                                     print(f"成功下载图标到: {png_icon_path}")
                                     # 转换为ICO
-                                    convert_png_to_ico(png_icon_path, ico_icon_path)
-                                    return ico_icon_path
+                                    result = convert_png_to_ico(png_icon_path, ico_icon_path)
+                                    if result:
+                                        return result
+                                    return download_default_icon()
                                 else:
                                     print(f"无效的图标类型: {content_type}")
                         except Exception as e:
@@ -159,10 +165,29 @@ def download_favicon(url):
             print(f"解析HTML失败: {e}")
 
         print("未能找到有效的网站图标，将使用默认图标")
-        return None
-            
+        return download_default_icon()  # 使用默认图标
+
     except Exception as e:
         print(f"下载favicon过程中出错: {e}")
+        return download_default_icon()  # 使用默认图标
+
+def download_default_icon():
+    """下载默认图标并返回其路径"""
+    default_icon_url = "https://www.loliapi.com/acg/pp/"
+    default_icon_path = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'WebIcons', 'defaultimg.png')
+    
+    try:
+        response = requests.get(default_icon_url, timeout=5)
+        if response.status_code == 200:
+            with open(default_icon_path, 'wb') as f:
+                f.write(response.content)
+            print(f"成功下载默认图标到: {default_icon_path}")
+            return default_icon_path
+        else:
+            print("下载默认图标失败，使用空图标")
+            return None
+    except Exception as e:
+        print(f"下载默认图标时出错: {e}")
         return None
 
 def convert_png_to_ico(png_path, ico_path):
@@ -171,8 +196,31 @@ def convert_png_to_ico(png_path, ico_path):
         with Image.open(png_path) as img:
             img.save(ico_path, format='ICO')
         print(f"成功将PNG图标转换为ICO: {ico_path}")
+        return ico_path
     except Exception as e:
         print(f"转换PNG为ICO时出错: {e}")
+        # 删除可能损坏的文件
+        if os.path.exists(png_path):
+            try:
+                os.remove(png_path)
+            except:
+                pass
+        if os.path.exists(ico_path):
+            try:
+                os.remove(ico_path)
+            except:
+                pass
+        # 获取默认图标
+        default_icon = download_default_icon()
+        if default_icon:
+            try:
+                # 将默认图标转换为ICO
+                with Image.open(default_icon) as img:
+                    img.save(ico_path, format='ICO')
+                return ico_path
+            except:
+                return default_icon
+        return None
 
 def create_shortcut(url, name=None):
     """创建Internet快捷方式并返回图标路径"""
